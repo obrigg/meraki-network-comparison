@@ -169,6 +169,28 @@ async def check_switch_acl(aiomeraki: meraki.aio.AsyncDashboardAPI, network: dic
     results[network['name']]['acls'] = diff
 
 
+async def check_firmware(aiomeraki: meraki.aio.AsyncDashboardAPI, network: dict, reference_network: dict):
+    if network['id'] == reference_network['id']:
+        return(None)
+    reference_firmware = {}
+    network_firmware = {}
+    try:
+        reference_settings = await aiomeraki.networks.getNetworkFirmwareUpgrades(reference_network['id'])
+        for product in reference_settings['products']:
+            reference_firmware[product] = reference_settings['products'][product]['currentVersion']
+    except Exception as e:
+        pp(f'[bold magenta]Some other ERROR: {e}')
+    try:
+        network_settings = await aiomeraki.networks.getNetworkFirmwareUpgrades(network['id'])
+        for product in network_settings['products']:
+            network_firmware[product] = network_settings['products'][product]['currentVersion']['shortName']
+    except Exception as e:
+        pp(f'[bold magenta]Some other ERROR: {e}')
+    diff = DeepDiff(reference_firmware, network_firmware, ignore_order=True)
+    print_messages(network['name'], reference_network['name'], diff, "Firmware")
+    results[network['name']]['firmware'] = diff
+
+
 def parse_diff(diff) -> dict:
     result = {"added primaries": [],
               "removed primaries": [],
@@ -248,6 +270,10 @@ async def main():
         check_switch_acl_tasks = [check_switch_acl(aiomeraki, net, source_network) for net in networks if "switch" in net['productTypes']]
         for task in asyncio.as_completed(check_switch_acl_tasks):
             await task
+        check_firmware_tasks = [check_firmware(aiomeraki, net, source_network) for net in networks]
+        for task in asyncio.as_completed(check_firmware_tasks):
+            await task
+        
         #pp(results)
 
 if __name__ == '__main__':
@@ -255,7 +281,7 @@ if __name__ == '__main__':
     dashboard = meraki.DashboardAPI(output_log=False, suppress_logging=True)
     pp("\n\nSelect source/template network:")
     networks, source_network = SelectNetwork()
-    pp("\n\n\n\n\n")
+    pp(20*"\n")
     results = {}
 
     loop = asyncio.get_event_loop()
