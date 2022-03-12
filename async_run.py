@@ -69,6 +69,8 @@ def SelectNetwork():
 
 
 async def check_wireless_ssid(aiomeraki: meraki.aio.AsyncDashboardAPI, network: dict, reference_network: dict):
+    if network['id'] == reference_network['id']:
+        return(None)
     try:
         reference_ssids = await aiomeraki.wireless.getNetworkWirelessSsids(reference_network['id'])    
     except Exception as e:
@@ -77,12 +79,19 @@ async def check_wireless_ssid(aiomeraki: meraki.aio.AsyncDashboardAPI, network: 
         network_ssids = await aiomeraki.wireless.getNetworkWirelessSsids(network['id'])
     except Exception as e:
         pp(f'[bold magenta]Some other ERROR: {e}')
+    for i in range(len(reference_ssids)):
+        del reference_ssids[i]['number']
+    for i in range(len(network_ssids)):
+        del network_ssids[i]['number']
+        
     diff = DeepDiff(reference_ssids, network_ssids, group_by='name', ignore_order=True)
     print_messages(network['name'], reference_network['name'], diff, "SSID")
     results[network['name']]['ssids'] = diff
 
 
 async def check_wireless_rf_profiles(aiomeraki: meraki.aio.AsyncDashboardAPI, network: dict, reference_network: dict):
+    if network['id'] == reference_network['id']:
+        return(None)
     try:
         reference_profiles = await aiomeraki.wireless.getNetworkWirelessRfProfiles(reference_network['id'])    
     except Exception as e:
@@ -97,6 +106,8 @@ async def check_wireless_rf_profiles(aiomeraki: meraki.aio.AsyncDashboardAPI, ne
 
 
 async def check_wireless_settings(aiomeraki: meraki.aio.AsyncDashboardAPI, network: dict, reference_network: dict):
+    if network['id'] == reference_network['id']:
+        return(None)
     try:
         reference_settings = await aiomeraki.wireless.getNetworkWirelessSettings(reference_network['id'])    
     except Exception as e:
@@ -111,12 +122,14 @@ async def check_wireless_settings(aiomeraki: meraki.aio.AsyncDashboardAPI, netwo
 
 
 async def check_switch_stp(aiomeraki: meraki.aio.AsyncDashboardAPI, network: dict, reference_network: dict):
+    if network['id'] == reference_network['id']:
+        return(None)
     try:
-        reference_settings = await aiomeraki.wireless.getNetworkSwitchStp(reference_network['id'])    
+        reference_settings = await aiomeraki.switch.getNetworkSwitchStp(reference_network['id'])    
     except Exception as e:
         pp(f'[bold magenta]Some other ERROR: {e}')
     try:
-        network_settings = await aiomeraki.wireless.getNetworkSwitchStp(network['id'])
+        network_settings = await aiomeraki.switch.getNetworkSwitchStp(network['id'])
     except Exception as e:
         pp(f'[bold magenta]Some other ERROR: {e}')
     diff = DeepDiff(reference_settings, network_settings, ignore_order=True)
@@ -125,12 +138,14 @@ async def check_switch_stp(aiomeraki: meraki.aio.AsyncDashboardAPI, network: dic
 
 
 async def check_switch_mtu(aiomeraki: meraki.aio.AsyncDashboardAPI, network: dict, reference_network: dict):
+    if network['id'] == reference_network['id']:
+        return(None)
     try:
-        reference_settings = await aiomeraki.wireless.getNetworkSwitchMtu(reference_network['id'])    
+        reference_settings = await aiomeraki.switch.getNetworkSwitchMtu(reference_network['id'])    
     except Exception as e:
         pp(f'[bold magenta]Some other ERROR: {e}')
     try:
-        network_settings = await aiomeraki.wireless.getNetworkSwitchMtu(network['id'])
+        network_settings = await aiomeraki.switch.getNetworkSwitchMtu(network['id'])
     except Exception as e:
         pp(f'[bold magenta]Some other ERROR: {e}')
     diff = DeepDiff(reference_settings, network_settings, ignore_order=True)
@@ -139,12 +154,14 @@ async def check_switch_mtu(aiomeraki: meraki.aio.AsyncDashboardAPI, network: dic
 
 
 async def check_switch_acl(aiomeraki: meraki.aio.AsyncDashboardAPI, network: dict, reference_network: dict):
+    if network['id'] == reference_network['id']:
+        return(None)
     try:
-        reference_settings = await aiomeraki.wireless.getNetworkSwitchAccessControlLists(reference_network['id'])    
+        reference_settings = await aiomeraki.switch.getNetworkSwitchAccessControlLists(reference_network['id'])    
     except Exception as e:
         pp(f'[bold magenta]Some other ERROR: {e}')
     try:
-        network_settings = await aiomeraki.wireless.getNetworkSwitchAccessControlLists(network['id'])
+        network_settings = await aiomeraki.switch.getNetworkSwitchAccessControlLists(network['id'])
     except Exception as e:
         pp(f'[bold magenta]Some other ERROR: {e}')
     diff = DeepDiff(reference_settings, network_settings, ignore_order=True)
@@ -184,22 +201,22 @@ def parse_diff(diff) -> dict:
 
 def print_messages(network_name: str, reference_name: str, diff, setting_name: str):
     if diff == {}:
-        pp(f"[green]The network {network_name} has the same {setting_name}s as the reference network {reference_name}.")
+        pp(f"[green]The network [bold]{network_name}[/bold] has the same {setting_name}s as the reference network [bold]{reference_name}[/bold].")
     else:
         parsed_diff = parse_diff(diff)
         for added_primary in parsed_diff['added primaries']:
-            pp(f"[red]Network {network_name} has an extra {setting_name}: {added_primary}.")
+            pp(f"[red]Network [bold]{network_name}[/bold] has an extra {setting_name}: {added_primary}.")
         for removed_primary in parsed_diff['removed primaries']:
-            pp(f"[red]Network {network_name} has a missing {setting_name}: {removed_primary}.")
+            pp(f"[red]Network [bold]{network_name}[/bold] has a missing {setting_name}: {removed_primary}.")
         for added_secondary in parsed_diff['added secondaries']:
             key, setting = added_secondary
-            pp(f"[yellow]Network {network_name}, setting {key} has an extra {setting_name}: {setting}.")
+            pp(f"[yellow]Network [bold]{network_name}[/bold], setting {key} has an extra {setting_name}: [bold]{setting}[/bold].")
         for removed_secondary in parsed_diff['removed secondaries']:
             key, setting = removed_secondary
-            pp(f"[yellow]Network {network_name}, setting {key} has a missing {setting_name}: {setting}.")
+            pp(f"[yellow]Network [bold]{network_name}[/bold], setting {key} has a missing {setting_name}: [bold]{setting}[/bold].")
         for changed_value in parsed_diff['changed values']:
             key, setting, old_value, new_value = changed_value
-            pp(f"[yellow]Network {network_name}, setting {key} has changed the value of {setting} from {old_value} to {new_value}.")   
+            pp(f"[yellow]Network [bold]{network_name}[/bold], setting [bold]{key}[/bold] has changed the value of [bold]{setting}[/bold] from {old_value} to {new_value}.")   
 
 
 async def main():
@@ -222,18 +239,23 @@ async def main():
         check_wireless_wireless_settings_tasks = [check_wireless_settings(aiomeraki, net, source_network) for net in networks if "wireless" in net['productTypes']]
         for task in asyncio.as_completed(check_wireless_wireless_settings_tasks):
             await task
-        check_switch_stp_tasks = [check_switch_stp(aiomeraki, net, source_network) for net in networks if "switch" in net['productTypes']]
+        '''check_switch_stp_tasks = [check_switch_stp(aiomeraki, net, source_network) for net in networks if "switch" in net['productTypes']]
         for task in asyncio.as_completed(check_switch_stp_tasks):
+            await task'''
+        check_switch_mtu_tasks = [check_switch_mtu(aiomeraki, net, source_network) for net in networks if "switch" in net['productTypes']]
+        for task in asyncio.as_completed(check_switch_mtu_tasks):
             await task
-            
-
-        pp(results)
+        check_switch_acl_tasks = [check_switch_acl(aiomeraki, net, source_network) for net in networks if "switch" in net['productTypes']]
+        for task in asyncio.as_completed(check_switch_acl_tasks):
+            await task
+        #pp(results)
 
 if __name__ == '__main__':
     # Initializing Meraki SDK
     dashboard = meraki.DashboardAPI(output_log=False, suppress_logging=True)
     pp("\n\nSelect source/template network:")
     networks, source_network = SelectNetwork()
+    pp("\n\n\n\n\n")
     results = {}
 
     loop = asyncio.get_event_loop()
