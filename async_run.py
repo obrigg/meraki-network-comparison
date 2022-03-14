@@ -79,11 +79,18 @@ async def check_wireless_ssid(aiomeraki: meraki.aio.AsyncDashboardAPI, network: 
         network_ssids = await aiomeraki.wireless.getNetworkWirelessSsids(network['id'])
     except Exception as e:
         pp(f'[bold magenta]Some other ERROR: {e}')
+    # Removing the SSID number, to prevent alerting in case only numbering changed
+    # Removing RADIUS servers' ID's as they will change between networks
     for i in range(len(reference_ssids)):
         del reference_ssids[i]['number']
+        if 'radiusServers' in reference_ssids[i].keys():
+            for j in range(len(reference_ssids[i]['radiusServers'])):
+                del reference_ssids[i]['radiusServers'][j]['id']
     for i in range(len(network_ssids)):
         del network_ssids[i]['number']
-        
+        if 'radiusServers' in network_ssids[i].keys():
+            for j in range(len(network_ssids[i]['radiusServers'])):
+                del network_ssids[i]['radiusServers'][j]['id']
     diff = DeepDiff(reference_ssids, network_ssids, group_by='name', ignore_order=True)
     print_messages(network['name'], reference_network['name'], diff, "SSID")
     results[network['name']]['ssids'] = diff
