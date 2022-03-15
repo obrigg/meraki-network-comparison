@@ -128,6 +128,71 @@ async def check_wireless_settings(aiomeraki: meraki.aio.AsyncDashboardAPI, netwo
     results[network['name']]['wireless_settings'] = diff
 
 
+async def check_wireless_l3_rules(aiomeraki: meraki.aio.AsyncDashboardAPI, network: dict, reference_network: dict):
+    if network['id'] == reference_network['id']:
+        return(None)
+    reference_rules = []
+    network_rules = []
+    for i in range(15):
+        try:
+            rules = await aiomeraki.wireless.getNetworkWirelessSsidFirewallL3FirewallRules(reference_network['id'], i)
+            for rule in rules['rules']:
+                if 'ipVer' in rule.keys():
+                    del rule['ipVer']
+            reference_rules.append(rules)
+        except Exception as e:
+            pp(f'[bold magenta]Some other ERROR: {e}')
+        try:
+            rules = await aiomeraki.wireless.getNetworkWirelessSsidFirewallL3FirewallRules(reference_network['id'], i)
+            for rule in rules['rules']:
+                if 'ipVer' in rule.keys():
+                    del rule['ipVer']
+            network_rules.append(rules)
+        except Exception as e:
+            pp(f'[bold magenta]Some other ERROR: {e}')
+    diff = DeepDiff(reference_rules, network_rules, ignore_order=True)
+    print_messages(network['name'], reference_network['name'], diff, "wireless L3 rule")
+    results[network['name']]['wireless_l3_rules'] = diff
+
+
+async def check_wireless_l7_rules(aiomeraki: meraki.aio.AsyncDashboardAPI, network: dict, reference_network: dict):
+    if network['id'] == reference_network['id']:
+        return(None)
+    reference_rules = []
+    network_rules = []
+    for i in range(15):
+        try:
+            reference_rules.append(await aiomeraki.wireless.getNetworkWirelessSsidFirewallL7FirewallRules(reference_network['id'], i))
+        except Exception as e:
+            pp(f'[bold magenta]Some other ERROR: {e}')
+        try:
+            network_rules.append(await aiomeraki.wireless.getNetworkWirelessSsidFirewallL7FirewallRules(network['id'], i))
+        except Exception as e:
+            pp(f'[bold magenta]Some other ERROR: {e}')
+    diff = DeepDiff(reference_rules, network_rules, ignore_order=True)
+    print_messages(network['name'], reference_network['name'], diff, "wireless L7 rule")
+    results[network['name']]['wireless_l7_rules'] = diff
+
+
+async def check_wireless_shaping_rules(aiomeraki: meraki.aio.AsyncDashboardAPI, network: dict, reference_network: dict):
+    if network['id'] == reference_network['id']:
+        return(None)
+    reference_rules = []
+    network_rules = []
+    for i in range(15):
+        try:
+            reference_rules.append(await aiomeraki.wireless.getNetworkWirelessSsidTrafficShapingRules(reference_network['id'], i))
+        except Exception as e:
+            pp(f'[bold magenta]Some other ERROR: {e}')
+        try:
+            network_rules.append(await aiomeraki.wireless.getNetworkWirelessSsidTrafficShapingRules(network['id'], i))
+        except Exception as e:
+            pp(f'[bold magenta]Some other ERROR: {e}')
+    diff = DeepDiff(reference_rules, network_rules, ignore_order=True)
+    print_messages(network['name'], reference_network['name'], diff, "wireless shaping rule")
+    results[network['name']]['wireless_shaping_rules'] = diff
+
+
 async def check_switch_stp(aiomeraki: meraki.aio.AsyncDashboardAPI, network: dict, reference_network: dict):
     if network['id'] == reference_network['id']:
         return(None)
@@ -267,6 +332,16 @@ async def main():
             await task
         check_wireless_wireless_settings_tasks = [check_wireless_settings(aiomeraki, net, source_network) for net in networks if "wireless" in net['productTypes']]
         for task in asyncio.as_completed(check_wireless_wireless_settings_tasks):
+            await task
+        pp("A bit of patience.. this is the slow part of the process (30 API calls per network)")
+        check_wireless_wireless_l3_rules_tasks = [check_wireless_l3_rules(aiomeraki, net, source_network) for net in networks if "wireless" in net['productTypes']]
+        for task in asyncio.as_completed(check_wireless_wireless_l3_rules_tasks):
+            await task
+        check_wireless_wireless_l7_rules_tasks = [check_wireless_l7_rules(aiomeraki, net, source_network) for net in networks if "wireless" in net['productTypes']]
+        for task in asyncio.as_completed(check_wireless_wireless_l7_rules_tasks):
+            await task
+        check_wireless_wireless_shaping_rules_tasks = [check_wireless_shaping_rules(aiomeraki, net, source_network) for net in networks if "wireless" in net['productTypes']]
+        for task in asyncio.as_completed(check_wireless_wireless_shaping_rules_tasks):
             await task
         '''check_switch_stp_tasks = [check_switch_stp(aiomeraki, net, source_network) for net in networks if "switch" in net['productTypes']]
         for task in asyncio.as_completed(check_switch_stp_tasks):
